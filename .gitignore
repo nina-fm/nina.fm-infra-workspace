@@ -1,0 +1,16 @@
+# Nina.fm Workspace — git repo tracking ONLY workspace config
+# Individual project repos are ignored (they have their own git)
+nina.fm-*/
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never commited)
+.env
+.env.local
+.env.*.local
+*.pem
