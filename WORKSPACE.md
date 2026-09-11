@@ -19,14 +19,11 @@ Observabilité : Grafana Cloud, stack `ninafm.grafana.net` — voir le README de
 
 ---
 
-## MCP Servers
+## GitHub
 
-Configurés dans `.mcp.json` :
+Toutes les opérations GitHub (PRs, merges, issues, réglages des dépôts) passent par le CLI `gh`, authentifié sur le poste (`gh auth status`), comme dans le workspace apps depuis avril 2026.
 
-| MCP          | Rôle                                                                      |
-| ------------ | ------------------------------------------------------------------------- |
-| `filesystem` | Accès à `~/Sites/nina/nina.fm-infra-workspace` pour navigation cross-repo |
-| `github`     | Branches, PRs, reviews (nécessite `GITHUB_PERSONAL_ACCESS_TOKEN`)         |
+Ce workspace n'a pas de serveur MCP. L'ancien `mcp.json` n'a jamais été chargé (il lui manquait le point de `.mcp.json`) et il a été supprimé le 11 septembre 2026 : son serveur GitHub (`@modelcontextprotocol/server-github`) est abandonné, et `gh` couvre le besoin. Les outils natifs de Claude Code atteignent déjà tous les dépôts depuis la racine du workspace, sans serveur `filesystem`.
 
 ---
 
@@ -37,7 +34,6 @@ Configurés dans `.mcp.json` :
 ├── CLAUDE.md                          ← Règles communes, lues en cascade depuis chaque repo
 ├── WORKSPACE.md                       ← Ce fichier
 ├── .gitignore                         ← Ignore les repos de code (nina.fm-*/)
-├── .mcp.json                          ← Config MCP partagée
 ├── setup.sh                           ← Installation sur une nouvelle machine
 ├── .claude/
 │   ├── commands/                      ← /task, /epic, /pr, /review
@@ -63,9 +59,8 @@ cd ~/Sites/nina/nina.fm-infra-workspace
 # 2. Cloner les repos d'infra (nina.fm-backup, nina.fm-broadcast, nina.fm-webserver)
 bash setup.sh
 
-# 3. Configurer le GITHUB_PERSONAL_ACCESS_TOKEN pour le MCP GitHub
-export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxx
-# → Ajouter à ~/.zshrc ou ~/.bashrc pour persistance
+# 3. Authentifier le CLI GitHub (PRs, merges, issues)
+gh auth login        # puis vérifier : gh auth status
 ```
 
 Les secrets de déploiement vivent dans les GitHub Secrets de chaque dépôt, pas sur le poste : aucun `.env` n'est nécessaire pour travailler sur l'infra.

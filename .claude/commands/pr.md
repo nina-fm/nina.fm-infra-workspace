@@ -23,6 +23,10 @@ If there are no uncommitted changes and the branch has no commits ahead of `main
 
 Run all checks in sequence. **Stop and report failures** before creating the PR.
 
+The infra repos have no `package.json`: run locally the checks their CI runs (see `.github/workflows/validate*.yml`) — at least shellcheck on the changed `*.sh`, plus the repo-specific validations (config syntax, `alloy validate`, `promtool`, …).
+
+If the repo does have a `package.json`:
+
 ```bash
 pnpm lint && pnpm type-check && pnpm test:run --passWithNoTests
 ```
@@ -54,9 +58,15 @@ git push -u origin $BRANCH
 
 ---
 
-### Step 5 — Create the PR via GitHub MCP
+### Step 5 — Create the PR with `gh`
 
-Use the `create_pull_request` GitHub MCP tool with:
+Write the body to a temporary file, then:
+
+```bash
+gh pr create --base main --head "$BRANCH" --title "<title>" --body-file <body file>
+```
+
+With:
 
 - **title**: Derive from the branch name and commits. Follow the format: `type(scope): description` (e.g., `feat(track-analysis): add BPM re-analysis button`)
 - **base**: `main`
@@ -89,10 +99,8 @@ Use the `create_pull_request` GitHub MCP tool with:
 
 ## Checklist
 
-- [ ] Tests pass (`pnpm test:run`)
-- [ ] TypeScript compiles (`pnpm type-check`)
-- [ ] Lint passes (`pnpm lint`)
-- [ ] API types regenerated if needed (`pnpm types:sync`)
+- [ ] Local checks pass (shellcheck and the repo's validations — or `pnpm lint / type-check / test:run` if the repo has a `package.json`)
+- [ ] CI green on the PR
 ```
 
 ---

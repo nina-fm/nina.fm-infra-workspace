@@ -10,14 +10,15 @@ echo "================================"
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── 1. Vérifications préalables ─────────────────────────────────────
+# Les repos d'infra n'ont pas de package.json : ni node ni pnpm ne sont
+# nécessaires. GitHub passe par le CLI gh (pas de serveur MCP).
 echo ""
 echo "📋 Vérification des prérequis..."
 
 command -v git >/dev/null 2>&1 || { echo "❌ git requis"; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "❌ node requis (recommandé: via nvm)"; exit 1; }
-command -v pnpm >/dev/null 2>&1 || { echo "❌ pnpm requis (npm install -g pnpm)"; exit 1; }
+command -v gh >/dev/null 2>&1 || { echo "❌ gh requis (https://cli.github.com)"; exit 1; }
 
-echo "✅ git, node, pnpm détectés"
+echo "✅ git, gh détectés"
 
 # ── 2. Clonage des repos ────────────────────────────────────────────
 echo ""
@@ -38,55 +39,18 @@ for repo in "${REPOS[@]}"; do
   fi
 done
 
-# ── 3. Variables d'environnement ────────────────────────────────────
+# ── 3. Authentification GitHub ──────────────────────────────────────
 echo ""
-echo "⚙️  Variables d'environnement..."
-
-for repo in "${REPOS[@]}"; do
-  env_example="$WORKSPACE_DIR/$repo/.env.example"
-  env_file="$WORKSPACE_DIR/$repo/.env"
-  if [ -f "$env_example" ] && [ ! -f "$env_file" ]; then
-    cp "$env_example" "$env_file"
-    echo "  📄 $repo/.env créé depuis .env.example — à compléter !"
-  fi
-done
-
-# ── 4. GitHub Token ─────────────────────────────────────────────────
-echo ""
-echo "🔑 GitHub Personal Access Token (MCP GitHub)"
-if [ -z "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
-  echo "  ⚠️  GITHUB_PERSONAL_ACCESS_TOKEN non défini"
-  echo "  → Ajouter dans ~/.zshrc : export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxx"
-  echo "  → Token requis pour le MCP GitHub (branches, PRs automatiques)"
+echo "🔑 CLI GitHub (PRs, merges, issues)"
+if gh auth status >/dev/null 2>&1; then
+  echo "  ✅ gh authentifié"
 else
-  echo "  ✅ GITHUB_PERSONAL_ACCESS_TOKEN défini"
+  echo "  ⚠️  gh non authentifié → gh auth login"
 fi
-
-# ── 5. MCPs ─────────────────────────────────────────────────────────
-echo ""
-echo "🔌 MCPs (Model Context Protocol)..."
-echo "  → Les MCPs seront installés automatiquement par Claude Code via npx"
-echo "  → Config dans: $WORKSPACE_DIR/.mcp.json"
-
-# ── 6. Git hooks (commitlint + lint-staged) ─────────────────────────
-echo ""
-echo "🪝 Git hooks..."
-for repo in "${REPOS[@]}"; do
-  if [ -f "$WORKSPACE_DIR/$repo/package.json" ]; then
-    if grep -q '"husky"' "$WORKSPACE_DIR/$repo/package.json" 2>/dev/null; then
-      echo "  → Husky dans $repo..."
-      (cd "$WORKSPACE_DIR/$repo" && pnpm husky install 2>/dev/null || true)
-    fi
-  fi
-done
 
 echo ""
 echo "================================"
 echo "✅ Setup terminé !"
 echo ""
-echo "Prochaines étapes manuelles :"
-echo "  1. Compléter les fichiers .env dans chaque repo"
-echo "  2. Configurer GITHUB_PERSONAL_ACCESS_TOKEN dans ~/.zshrc"
-echo "  3. Lancer Nginx : voir nina.fm-webserver/docker-compose.yml"
-echo "  4. Lancer Libretime : voir nina.fm-broadcast/libretime/docker-compose.yml"
-echo "  5. Lancer Icecast : voir nina.fm-broadcast/icecast/docker-compose.yml"
+echo "Les secrets de déploiement vivent dans les GitHub Secrets de chaque repo :"
+echo "aucun .env n'est nécessaire pour travailler sur l'infra."

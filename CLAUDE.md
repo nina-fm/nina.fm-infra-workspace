@@ -10,7 +10,8 @@ Ces règles s'appliquent à tous les repos sauf mention contraire.
 
 ## Workflow Git & GitHub
 
-- **Merger une PR** : toujours via `mcp__github__merge_pull_request` avec `merge_method: "squash"` — jamais avec `git merge` + `git push`
+- **GitHub** : tout passe par le CLI `gh` (PRs, merges, issues, réglages) — ce workspace n'a pas de serveur MCP
+- **Merger une PR** : `gh pr merge --squash --delete-branch <numéro>` — jamais `git merge` + `git push`
 - **Squash merge** sur `main` — un commit par PR, historique propre
 - **Changeset obligatoire** avant de merger toute PR `feat:` ou `fix:` — `pnpm changeset` crée `.changeset/*.md`
 - **Sync avant de tirer une branche** : `git pull origin main` avant `git checkout -b`

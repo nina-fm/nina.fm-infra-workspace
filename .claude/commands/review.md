@@ -2,7 +2,7 @@ Perform a thorough code review of the current changes.
 
 $ARGUMENTS
 
-If $ARGUMENTS contains a PR number (e.g., `42`), fetch the PR diff via GitHub MCP and post the review as a PR comment at the end.
+If $ARGUMENTS contains a PR number (e.g., `42`), fetch the PR diff with `gh pr diff` and post the review as a PR comment at the end.
 
 ---
 
@@ -15,7 +15,7 @@ git diff $BASE...HEAD --stat
 git log $BASE..HEAD --oneline
 ```
 
-If $ARGUMENTS specifies a PR number, use the GitHub MCP `get_pull_request_files` tool to get the list of changed files, and `get_pull_request` to get context.
+If $ARGUMENTS specifies a PR number, use `gh pr view <number> --json title,body,files` for context and the list of changed files, and `gh pr diff <number>` for the diff.
 
 ---
 
@@ -103,6 +103,6 @@ _If no issues: "No issues found."_
 
 ### Step 4 — Post as PR comment (if PR number provided)
 
-If $ARGUMENTS contains a PR number, use the GitHub MCP `add_issue_comment` tool to post the review content as a comment on that PR.
+If $ARGUMENTS contains a PR number, write the review to a temporary file and post it with `gh pr comment <number> --body-file <file>`.
 
 Report: "Review posted on PR #[number]" with the PR URL.
