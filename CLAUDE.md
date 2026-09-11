@@ -13,7 +13,7 @@ Ces règles s'appliquent à tous les repos sauf mention contraire.
 - **GitHub** : tout passe par le CLI `gh` (PRs, merges, issues, réglages) — ce workspace n'a pas de serveur MCP
 - **Merger une PR** : `gh pr merge --squash --delete-branch <numéro>` — jamais `git merge` + `git push`
 - **Squash merge** sur `main` — un commit par PR, historique propre
-- **Changeset obligatoire** avant de merger toute PR `feat:` ou `fix:` — `pnpm changeset` crée `.changeset/*.md`
+- **Pas de changeset** : les repos infra n'ont ni `package.json` ni versionnement — l'historique, c'est le message du squash (Conventional Commits) et la description de la PR
 - **Sync avant de tirer une branche** : `git pull origin main` avant `git checkout -b`
 - **Suppression automatique des branches** au merge (`delete_branch_on_merge` activé sur tous les repos)
 - **Mémoire projet** : consigner les conventions dans `CLAUDE.md` (workspace ou repo) — jamais dans la mémoire user (`~/.claude/`) sauf préférences vraiment personnelles

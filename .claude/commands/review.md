@@ -23,51 +23,46 @@ If $ARGUMENTS specifies a PR number, use `gh pr view <number> --json title,body,
 
 Go through each changed file systematically. Apply the relevant checks below based on file type.
 
-#### TypeScript — all files
-- [ ] No `any` types — strict TypeScript throughout
-- [ ] No unused variables, imports, or parameters
-- [ ] Error handling uses `catch (error: unknown)` — never `catch (error: any)`
-- [ ] No hardcoded values that belong in constants or env vars
-- [ ] Interfaces/types are explicit and well-named
+Each infra repo documents its own conventions in its README (e.g. nina.fm-backup: comments in French without accents, explaining the why and past incidents). Read it before reviewing.
 
-#### Architecture — SolidJS files (`.tsx`, `.ts` in `src/`)
-- [ ] Logic flows correctly: Context → Store → Hooks → Components
-- [ ] No business logic in components (belongs in hooks or services)
-- [ ] No direct store manipulation from components (use hooks)
-- [ ] New hooks check: does an existing hook already cover this need?
-- [ ] Lucide icons imported individually (`lucide-solid/icons/name`), never from package root
+#### Shell scripts (`*.sh`)
+- [ ] `set -euo pipefail`, and shellcheck clean at `--severity=style` (CI runs it)
+- [ ] Variables quoted; function variables declared `local`
+- [ ] No `|| true` / `2>/dev/null` hiding a real failure — only where the failure is expected and explained
+- [ ] Files read by another process written atomically (temp file in the same directory + `mv`), with the right mode for the reader
+- [ ] Scripts run by cron: `flock` so runs don't pile up, silent on success, errors to stderr (→ journald → Loki)
+- [ ] Nothing accumulates (temp files, logs, caches): bounded or cleaned up
+- [ ] Idempotent: running it twice changes nothing the second time
 
-#### SolidJS reactivity
-- [ ] Signals accessed as functions (`session()`, not `session`)
-- [ ] Reactive computations use `createMemo`, not plain variables
-- [ ] `Show` used for conditional rendering (no JSX ternaries)
-- [ ] `For` used for lists (no `.map()` in JSX)
-- [ ] No reactive state mutations from outside `createSignal` setters
+#### System configuration (nina.fm-backup: `system/`, `bootstrap.sh`)
+- [ ] Never overwrites a dpkg conffile — use the `.d/` directory or a drop-in instead
+- [ ] Validated **before** being installed (`logrotate --debug`, `alloy validate`, `visudo -c`, …) — nothing half-installed
+- [ ] "Applied, not just installed": the daemon is checked against the real state (`needs_apply`, config hash), not "did this deploy change a file?"
+- [ ] A failure ends the deploy in explicit red, never silently
+- [ ] No one-shot script left in the repo once executed
+- [ ] `sudoers.d` rules and the workflow commands stay identical to the character
 
-#### API calls (files in `src/services/api/`)
-- [ ] `credentials: 'include'` present on every `fetch`
-- [ ] Response unwrapped correctly (`response.data`, not `response`)
-- [ ] HTTP errors throw with `throw new Error(...)`
-- [ ] `buildApiUrl(path)` used — no hardcoded localhost URLs
+#### Docker / compose (broadcast, webserver)
+- [ ] Image versions pinned; restart policy and healthcheck where relevant
+- [ ] Memory limit set and justified (the droplet has 2 GB of RAM and swaps — check the `nina-memory` dashboard)
+- [ ] No local `logging:` block without a reason: the default comes from `/etc/docker/daemon.json` (nina.fm-backup)
+- [ ] Secrets come from the environment or GitHub Secrets, never committed
 
-#### Architecture — NestJS files (API repo)
-- [ ] DTO validation decorators present (`@IsString()`, `@IsOptional()`, etc.)
-- [ ] Response wrapped in `{ data: T }` format
-- [ ] Guards applied appropriately (`@Auth()`, `@Roles()`)
-- [ ] Service does not directly call repositories it doesn't own
-- [ ] New endpoint has a corresponding `.bru` file in `bruno/`
+#### nginx (webserver)
+- [ ] `nginx -t` passes; new server blocks reuse `ssl-common/` and the wildcard certificate
+- [ ] Upstream port matches the service it proxies
 
-#### Tests
-- [ ] New features have corresponding test files
-- [ ] Tests follow `it('should [behavior] when [condition]')` naming
-- [ ] Mock factories used for complex objects (no inline object literals)
-- [ ] Tests are isolated (no shared mutable state between `it()` blocks)
-- [ ] No snapshot tests
+#### GitHub Actions workflows
+- [ ] Secrets passed through `env:` and stdin, never as command-line arguments (visible in `/proc`) nor inlined as `${{ }}` in `run:`
+- [ ] Actions pinned to a version that runs on Node 24 (see nina-fm/nina.fm-infra-workspace#1)
+- [ ] `paths:` triggers match the files the workflow actually deploys
+- [ ] A final verification step proves the result on the server
 
-#### Security & Performance
-- [ ] No sensitive data in console logs or error messages
-- [ ] Heavy computations delegated to Web Workers (not main thread)
-- [ ] No synchronous file I/O or blocking operations
+#### Deployment impact
+- [ ] Does it restart something that cuts the stream (Docker, icecast, liquidsoap, playout)? If so, it must be explicit and scheduled — never part of an ordinary deploy
+- [ ] Rollback path known and written down (README or PR description)
+- [ ] Tested where it can be: CI, local run, read-only run on the server, deployment simulation (`.claude/plans/sim-deploiement/`)
+- [ ] No secret printed in logs or in the PR
 
 ---
 
@@ -90,9 +85,9 @@ Format your review output **exactly** as follows:
 
 | Severity | File | Issue | Suggestion |
 |----------|------|-------|------------|
-| 🔴 Critical | `path/to/file.ts` | [issue description] | [how to fix] |
-| 🟡 Warning | `path/to/file.ts` | [issue description] | [how to fix] |
-| 🔵 Suggestion | `path/to/file.ts` | [improvement idea] | [how to improve] |
+| 🔴 Critical | `path/to/file` | [issue description] | [how to fix] |
+| 🟡 Warning | `path/to/file` | [issue description] | [how to fix] |
+| 🔵 Suggestion | `path/to/file` | [improvement idea] | [how to improve] |
 
 _If no issues: "No issues found."_
 
