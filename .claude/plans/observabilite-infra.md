@@ -16,7 +16,7 @@
 
 ## Pour la session qui exécutera ce plan
 
-**Accès et sécurité** (inchangés depuis `alloy-metriques-memoire.md`)
+**Accès et sécurité**
 - Commandes serveur : `ninsh "<cmd>"`, lecture seule sans sudo ; les commandes sudo sont lancées par Vincent (préfixe `!`). `vincent` est dans le groupe `docker`.
 - **Ne jamais afficher de secret.** Les comparer par empreinte, les mesurer avec `wc -c`.
 - Tester un collecteur sur le serveur sans rien installer : `ninsh 'd=$(mktemp -d); cat > $d/s.sh; NINA_METRICS_DIR=$d bash $d/s.sh; cat $d/*.prom; rm -rf $d' < scripts/<script>.sh`.
