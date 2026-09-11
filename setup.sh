@@ -24,6 +24,7 @@ echo ""
 echo "📦 Clonage des repos..."
 
 REPOS=(
+  "nina.fm-backup"
   "nina.fm-broadcast"
   "nina.fm-webserver"
 )
@@ -33,7 +34,7 @@ for repo in "${REPOS[@]}"; do
     echo "  ↩️  $repo déjà présent — skip"
   else
     echo "  ⬇️  Clonage de $repo..."
-    git clone "git@github.com:YOUR_ORG/$repo.git" "$WORKSPACE_DIR/$repo"
+    git clone "git@github.com:nina-fm/$repo.git" "$WORKSPACE_DIR/$repo"
   fi
 done
 
