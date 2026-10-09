@@ -40,8 +40,8 @@ Dans Grafana Cloud : les séries `nina_cgroup_*` arrivent et `nina-memory` est i
 
 - **Sites.** 8 noms servis par le conteneur nginx de cette machine : `nina.fm` (301 vers `www`), `www`, `auth`, `prog`, `flux`, `mixtaper` et `faceb` (200 sur `/`), et `api`, qui répond 404 sur `/` mais 200 sur `/health`. `auth.nina.fm/hello` répond aussi 200. Sondés depuis le serveur, les noms repassent par l'IP publique puis nginx, en 40 à 100 ms.
 - **Certificat.** Un seul wildcard Let's Encrypt `*.nina.fm` couvre les 8 noms. Il est géré par **acme.sh + DNS OVH** (déployé par nina.fm-webserver dans `/var/nina/.ssl/nina.fm/`) et expire le **19 nov. 2026**.
-  - **Renouvellement confirmé le 2026-09-11** : le crontab root lance `17 7 * * * /bin/sh /var/nina/.acme.sh/acme.sh --cron --home /var/nina/.acme.sh > /var/log/acme-cron.log`. Le certificat actuel a été écrit le 21 août à 7:18, donc par cette tâche. Le journal (`/var/log/acme-cron.log`, lisible sans sudo) montre un passage chaque matin ; prochain renouvellement annoncé par acme.sh : **2026-10-19T05:18Z**.
-  - Cette tâche vit dans le crontab root, pas dans un dépôt ; une ancienne version commentée traîne juste au-dessus. Voir « Hors périmètre ».
+  - **Renouvellement confirmé le 2026-09-11** : le crontab root lançait alors `17 7 * * * /bin/sh /var/nina/.acme.sh/acme.sh --cron --home /var/nina/.acme.sh > /var/log/acme-cron.log`. Le certificat actuel a été écrit le 21 août à 7:18, donc par cette tâche. Le journal (`/var/log/acme-cron.log`, lisible sans sudo) montre un passage chaque matin ; prochain renouvellement annoncé par acme.sh : **2026-10-19T05:18Z**.
+  - Depuis le 2026-10-09, la tâche vit dans `system/cron.d/nina-maintenance` de nina.fm-backup (nina-fm/nina.fm-backup#11), même commande, même heure ; le crontab root est vide.
 - **UptimeRobot** : il fait un seul `HEAD api.nina.fm/health`, toutes les 5 minutes environ (d'après la signature de son user agent dans `/var/log/nginx/api.nina.fm_access.log`). Aucun autre site n'apparaît dans les logs.
 - **Flux vu de l'extérieur.**
   - `HEAD https://flux.nina.fm/nina.mp3` renvoie **400** : c'est inutilisable, et un `GET` ne se terminerait jamais.
@@ -149,7 +149,7 @@ On lit les mêmes cgroups dans la même boucle, sans aucun appel en plus.
 
 ### 1.3 Ménage et backup
 - À la fin de `nina-housekeeping.sh`, seulement en cas de succès : `housekeeping.prom` avec `nina_housekeeping_last_success_timestamp_seconds` et `nina_housekeeping_reclaimed_bytes`.
-- À la fin de `backup-nina-to-s3.sh` : `backup.prom` avec `nina_backup_last_success_timestamp_seconds`. Le backup étant désactivé (#2), la série n'existe pas. Le dashboard l'affiche comme « aucun backup (voir #2) », ce qui rend l'arbitrage visible. Pas d'alerte tant que #2 n'est pas tranché.
+- À la fin de `backup-nina-to-s3.sh` : `backup.prom` avec `nina_backup_last_success_timestamp_seconds`. Le backup tourne chaque nuit : il n'avait jamais été désactivé, #2 partait d'une mauvaise lecture du crontab root (tranché par nina-fm/nina.fm-backup#11). La série sera donc alimentée dès l'ajout de `backup.prom`, et porte une alerte (4.3).
 
 ### 1.4 Planification (`system/cron.d/nina-maintenance`)
 ```
@@ -276,7 +276,7 @@ Deux entrées, `DS_PROMETHEUS` et `DS_LOKI`. **Adapter le contrôle de `validate
 
 | Rangée | Panneaux (PromQL de référence) |
 | --- | --- |
-| **État** (tuiles) | flux en ligne `max(nina_icecast_source_connected{mount="nina.mp3"})` (1 = en ligne, 0 = coupé) · auditeurs `sum(nina_icecast_listeners)` · sites OK `count(probe_success == 1)` sur `count(probe_success)` · certificat `(min(probe_ssl_earliest_cert_expiry) - time()) / 86400` jours · disque `/` · RAM disponible · swap · âge du dernier relevé (memstats, icecast) · dernier ménage · dernier backup (valeur absente affichée « aucun (voir #2) ») |
+| **État** (tuiles) | flux en ligne `max(nina_icecast_source_connected{mount="nina.mp3"})` (1 = en ligne, 0 = coupé) · auditeurs `sum(nina_icecast_listeners)` · sites OK `count(probe_success == 1)` sur `count(probe_success)` · certificat `(min(probe_ssl_earliest_cert_expiry) - time()) / 86400` jours · disque `/` · RAM disponible · swap · âge du dernier relevé (memstats, icecast) · dernier ménage · dernier backup |
 | **Flux** | auditeurs et pic dans le temps · source connectée (state timeline) · reconnexions `changes(nina_icecast_stream_start_timestamp_seconds[1h])` |
 | **Sites** | `probe_success` par `site` (state timeline) · `probe_duration_seconds` · code HTTP |
 | **Hôte** | CPU `node_cpu_seconds_total` par mode · charge · RAM et swap · E/S disque · réseau · PSI. Lien vers les dashboards Linux de l'intégration Grafana Cloud plutôt que de les refaire |
@@ -322,6 +322,7 @@ Les seuils mémoire sont à calibrer avec la semaine de données de #6.
 | Collecte figée | âge de `nina_memstats_last_run_timestamp_seconds` ou de `nina_icecast_last_run_timestamp_seconds` > 5 min | 5 min | sinon, les autres alertes se taisent sans bruit |
 | **Plus aucune donnée** | `up{job="integrations/node_exporter"}` absent (état *No data* = alerte) | 10 min | Alloy tombé alors que le serveur répond. Si c'est le droplet qui meurt, UptimeRobot le voit aussi |
 | Ménage non passé | âge de `nina_housekeeping_last_success_timestamp_seconds` > 8 jours | | |
+| Backup non passé | âge de `nina_backup_last_success_timestamp_seconds` > 26 h | | dumps quotidiens à minuit : une nuit manquée suffit, la marge couvre la durée du script |
 
 Pas d'alerte Grafana « flux coupé » : le moniteur mot-clé d'UptimeRobot la donne déjà, et de l'extérieur. Le collecteur Icecast sert au dashboard (auditeurs, reconnexions) et au diagnostic.
 
@@ -329,7 +330,7 @@ Les alertes applicatives (taux de 5xx de nina-api, par exemple) relèvent du pla
 
 ## Étapes manuelles (Vincent)
 1. **UptimeRobot, flux**, faisable dès maintenant : moniteur **Keyword** sur `https://flux.nina.fm/status-json.xsl`, qui alerte si le mot-clé `nina.mp3` est **absent**, à l'intervalle le plus court de l'offre. Vérifier que l'offre gratuite propose ce type de moniteur. Le monitor api existant reste tel quel.
-2. ~~**acme.sh** : confirmer où tourne le renouvellement~~ — fait le 2026-09-11 (crontab root, tous les jours à 7:17).
+2. ~~**acme.sh** : confirmer où tourne le renouvellement~~ — fait le 2026-09-11 (crontab root, tous les jours à 7:17), versionné le 2026-10-09 dans `cron.d` (nina-fm/nina.fm-backup#11).
 3. **PR 2** : fenêtre de maintenance, modification à la main du compose de diun (sudo).
 4. **PR 4** : compte de service et token Grafana.
 
@@ -339,7 +340,6 @@ Les alertes applicatives (taux de 5xx de nina-api, par exemple) relèvent du pla
 - État des healthchecks Docker : il faudrait interroger Docker chaque minute, ce que #6 vient d'éviter.
 - Dashboard applicatif de nina-api : plan apps.
 - Reprise de diun dans nina.fm-backup, comme Alloy.
-- Sortir la tâche acme.sh du crontab root pour la versionner, par exemple dans le déploiement de nina.fm-webserver (qui gère déjà `/var/nina/.acme.sh`), et supprimer la ligne commentée. Même logique que la ligne de sauvegarde sortie du crontab root par nina.fm-backup. Sans urgence : l'alerte certificat (PR 4) couvre un renouvellement raté.
 - **Piste d'optimisation mémoire, vue en passant** : libretime-api, le plus gros consommateur (environ 236 Mo), reçoit environ 2 700 requêtes de sondage par heure (`/api/v2/shows/…`, `/show-instances/…`, `/api/live-info`). Identifier qui sonde (nina-api via `STREAM_API_URL`, ou les lecteurs des visiteurs) et mettre ces réponses en cache pourrait permettre de réduire les workers gunicorn. À traiter avec les optimisations issues de #6.
 
 ## Vérification
