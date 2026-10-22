@@ -44,7 +44,7 @@ Each infra repo documents its own conventions in its README (e.g. nina.fm-backup
 
 #### Docker / compose (broadcast, webserver)
 - [ ] Image versions pinned; restart policy and healthcheck where relevant
-- [ ] Memory limit set and justified (the droplet has 2 GB of RAM and swaps — check the `nina-memory` dashboard)
+- [ ] Memory limit set and justified (the droplet has 2 GB of RAM and swaps — check the `nina-infra` dashboard, Mémoire et swap tab)
 - [ ] No local `logging:` block without a reason: the default comes from `/etc/docker/daemon.json` (nina.fm-backup)
 - [ ] Secrets come from the environment or GitHub Secrets, never committed
 

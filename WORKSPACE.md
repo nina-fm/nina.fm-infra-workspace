@@ -15,7 +15,7 @@ Tout tourne sur un seul droplet DigitalOcean (Debian trixie, `flux.nina.fm`), au
 | `nina.fm-broadcast` | Icecast + LibreTime (Docker)     | Programmation et diffusion de la webradio                                                                                                                   | `deploy-icecast.yml`, `deploy-libretime.yml`                          |
 | `nina.fm-webserver` | nginx (Docker) + acme.sh         | Reverse proxy de tous les domaines `*.nina.fm` (apps comprises), certificat wildcard Let's Encrypt (DNS OVH)                                               | `deploy-nginx.yml`                                                    |
 
-Observabilité : Grafana Cloud, stack `ninafm.grafana.net` — voir le README de `nina.fm-backup` (section « Alloy et métriques mémoire »). Plans validés, à exécuter : `.claude/plans/`.
+Observabilité : Grafana Cloud, stack `ninafm.grafana.net` — voir le README de `nina.fm-backup` (section « Alloy, métriques mémoire et CPU »). Plans validés, à exécuter : `.claude/plans/`.
 
 ---
 

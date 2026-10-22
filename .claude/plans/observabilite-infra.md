@@ -2,7 +2,11 @@
 
 > **Statut** : rédigé le 2026-09-11 ; décisions de Vincent intégrées le même jour (voir « Décisions prises »). À exécuter dans une session fraîche.
 > **Prérequis** : nina.fm-backup#6 (Alloy repris en CD + métriques mémoire) mergée et déployée, et environ une semaine de données mémoire (elles servent à calibrer les seuils d'alerte).
-> Repo principal : `nina.fm-backup`. La PR 2 touche aussi nina.fm-faceb, nina.fm-website, nina.fm-auth et diun (voir PR 2). Aucune modification n'a encore été faite.
+> Repo principal : `nina.fm-backup`. La PR 2 touche aussi nina.fm-faceb, nina.fm-website, nina.fm-auth et diun (voir PR 2).
+>
+> **Avancement au 2026-10-22**, hors du découpage ci-dessous :
+> - **CPU par cgroup fait** (nina-fm/nina.fm-backup#12) sous le nom `nina_cgroup_cpu_usage_seconds_total`, plus `nina_cgroup_cpu_throttled_seconds_total` (cgroups sous plafond seulement), et PSI CPU de l'hôte dans la liste blanche. Les PromQL de ce plan qui citent `nina_cgroup_cpu_seconds_total` sont à lire avec ce nom. Reste de 1.1 : la pression mémoire par cgroup.
+> - **Dashboard « Nina.fm — Infra » fait** (nina-fm/nina.fm-backup#13), uid `nina-infra`, schéma v2 à **onglets** (Vue d'ensemble, CPU, Mémoire et swap, Disque et réseau, Par service). Il remplace `nina-memory` et couvre déjà les rangées « Hôte » et « Conteneurs et services » de 3.1. Voir PR 3 pour ce qui reste.
 
 ## Décisions prises (Vincent, 2026-09-11)
 
@@ -100,7 +104,7 @@ Dans Grafana Cloud : les séries `nina_cgroup_*` arrivent et `nina-memory` est i
 | 0 — Simulation en CI | le banc de simulation de #6 versionné et lancé par la CI | #6 |
 | 1 — Collecte | CPU et pression mémoire par cgroup, collecteur Icecast, métriques ménage et backup, sondes blackbox | PR 0 |
 | 2 — Logs des conteneurs | `daemon.json` passé en journald, labels et filtre dans Alloy, fin de la troncature des logs JSON, blocs `logging:` retirés dans 4 endroits, **fenêtre de maintenance** | PR 1 (les auditeurs servent à choisir l'heure) |
-| 3 — Dashboards | `nina-overview.json` (nouveau), `nina-memory.json` (CPU et pression) | PR 1 ; PR 2 pour le panneau des logs |
+| 3 — Dashboards | onglets Flux, Sites, nina-api et Logs dans `nina-infra.json` (déjà en place depuis #13 pour l'hôte et les services) | PR 1 ; PR 2 pour le panneau des logs |
 | 4 — Alertes + Grafana piloté par la CI | règles et contact en JSON, workflow `deploy-grafana.yml` | PR 1 |
 
 Étape manuelle, indépendante et faisable dès maintenant : **UptimeRobot sur le flux** (voir « Étapes manuelles »).
@@ -271,8 +275,11 @@ Les retirer, pour que ces conteneurs héritent du défaut du démon (une seule s
 
 ## PR 3 — Dashboards (`feat/observabilite-dashboards`)
 
-### 3.1 `grafana/nina-overview.json` — « Nina.fm — Infra »
-Deux entrées, `DS_PROMETHEUS` et `DS_LOKI`. **Adapter le contrôle de `validate.yml`**, qui n'accepte aujourd'hui que `${DS_PROMETHEUS}`.
+> **Depuis #13** : plus de `nina-overview.json` ni de `nina-memory.json`. Tout va dans `grafana/nina-infra.json` (schéma v2, onglets), sans source nommée : la source Prometheus par défaut est prise. Ce qui reste du tableau ci-dessous devient des **onglets** (Flux, Sites, nina-api, Logs) et des **tuiles** de la Vue d'ensemble (flux, auditeurs, sites, certificat, dernier ménage, dernier backup). Les rangées « Hôte » et « Conteneurs et services » sont faites.
+>
+> **Loki** : la source par défaut est Prometheus, une requête Loki sans source ne la trouvera pas. Vérifier à l'import comment le schéma v2 résout `group: "loki"` sans `datasource` ; à défaut, une variable de type datasource (`DatasourceVariable`) et `validate.yml` à adapter, qui refuse aujourd'hui toute source nommée.
+
+### 3.1 Contenu de référence (« Nina.fm — Infra »)
 
 | Rangée | Panneaux (PromQL de référence) |
 | --- | --- |
@@ -284,8 +291,8 @@ Deux entrées, `DS_PROMETHEUS` et `DS_LOKI`. **Adapter le contrôle de `validate
 | **nina-api (résumé)** | req/s `sum(rate(http_requests_total{app="nina-fm-api"}[$__rate_interval]))` · part de 5xx · p95 `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{app="nina-fm-api"}[5m])))` · lien vers le dashboard applicatif |
 | **Logs** | erreurs du journal `{job="integrations/node_exporter", level=~"err|crit|alert|emerg"}` · logs d'un conteneur choisi dans une variable `container` (après la PR 2) |
 
-### 3.2 `grafana/nina-memory.json`
-Ajouter « Qui attend la mémoire » (pression `some` et `full` par service) et un panneau CPU par service. Garder l'uid `nina-memory`.
+### 3.2 Pression mémoire par service
+Le panneau CPU par service est fait (#13). Reste « Qui attend la mémoire » (pression `some` et `full` par service), dans l'onglet Mémoire et swap, une fois la série de 1.1 collectée.
 
 ### 3.3 Import
 Import manuel tant que la PR 4 n'est pas faite. Vérifier qu'aucun panneau n'est vide.
@@ -301,7 +308,7 @@ Import manuel tant que la PR 4 n'est pas faite. Vérifier qu'aucun panneau n'est
 Il se déclenche sur `main` pour les chemins `grafana/**`, et en `workflow_dispatch`. **À vérifier à l'exécution** sur l'API Grafana Cloud.
 1. Dossier `nina-infra` : `POST /api/folders`, idempotent sur l'uid.
 2. uid des sources de données : `GET /api/datasources` (types `prometheus` et `loki`).
-3. Dashboards : `POST /api/dashboards/import` avec `overwrite: true`, `folderUid`, et `inputs` qui associent `DS_PROMETHEUS` et `DS_LOKI` à leurs uid.
+3. Dashboards : schéma v2 depuis #13, donc API ressource et plus `/api/dashboards/import` : `PUT /apis/dashboard.grafana.app/v2/namespaces/<namespace>/dashboards/nina-infra` (avec le `resourceVersion` courant ; `POST` sur la collection s'il n'existe pas), annotation `grafana.app/folder: nina-infra`. Le namespace est donné par `/api/frontend/settings` (`stacks-1565014` aujourd'hui). `?dryRun=All` valide sans écrire.
 4. Alertes : `grafana/alerts/*.json`, un fichier par règle avec un uid stable, envoyé par `PUT /api/v1/provisioning/alert-rules/<uid>` (ou `POST` si nouvelle). La provenance reste « API » : règles **verrouillées dans l'interface**, git est la source de vérité.
 5. Contact : e-mail `infos@nina.fm` (même canal que diun et le ménage), via `/api/v1/provisioning/contact-points`.
 6. **Politique de notification : attention.** `PUT /api/v1/provisioning/policies` remplace **tout l'arbre**. Relire d'abord l'existant et n'ajouter qu'une route `team="nina-infra"`.
